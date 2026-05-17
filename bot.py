@@ -13,7 +13,9 @@ TOKEN = "8907973283:AAG_2FPr84WYR1JFKy8abqQcc-7b0LHNtUA"
 
 SUPPORT_ID = "@ZenVPN_ir"
 
-CARD_NAME = "محمدی رباض"
+CHANNEL_LINK = "https://t.me/+GA5A2MMOUglmMzE0"
+
+CARD_NAME = "محمدی ریاض"
 CARD_NUMBER = "6037691790069355"
 
 # ================= PRICE LIST =================
@@ -44,23 +46,42 @@ CHAT_NET_PRICES = {
     "10 گیگ": "1,900,000 تومان"
 }
 
-# ================= START =================
+# ================= MAIN MENU =================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def main_menu():
 
     keyboard = [
-        ["🔥 نت ملی اینستاگرام + تلگرام"],
+        ["🔥 نت ملی اینستاگرام + تلگرام + واتساپ"],
         ["💬 نت ملی چت و پیام‌رسان"],
-        ["💰 تعرفه ها", "🛠 پشتیبانی"]
+        ["📢 کانال ما", "🛠 پشتیبانی"],
+        ["💰 تعرفه ها"]
     ]
 
-    reply_markup = ReplyKeyboardMarkup(
+    return ReplyKeyboardMarkup(
         keyboard,
         resize_keyboard=True
     )
 
-    text = """
-🔐 فروشگاه رسمی کانفیگ نت ملی
+# ================= START =================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    text = f"""
+🔥 به فروشگاه VipNet خوش آمدید
+
+📢 قبل از خرید وارد کانال شوید:
+{CHANNEL_LINK}
+
+🎁 داخل کانال:
+• قیمت های جدید
+• تخفیف ها
+• کانفیگ رایگان
+
+قرار داده می‌شود ✅
+
+━━━━━━━━━━━━━━
+
+🔐 فروش کانفیگ نت ملی
 
 ✅ سرعت بالا
 ✅ تحویل فوری
@@ -71,7 +92,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         text,
-        reply_markup=reply_markup
+        reply_markup=main_menu()
     )
 
 # ================= MESSAGE HANDLER =================
@@ -82,16 +103,10 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ================= FAST NET =================
 
-    if text == "🔥 نت ملی اینستاگرام + تلگرام":
+    if text == "🔥 نت ملی اینستاگرام + تلگرام + واتساپ":
 
-        plans = "\n".join(
-            [f"{k} ➜ {v}" for k, v in FAST_NET_PRICES.items()]
-        )
-
-        keyboard = [
-            ["💳 کارت به کارت"],
-            ["🔙 برگشت"]
-        ]
+        keyboard = [[gig] for gig in FAST_NET_PRICES.keys()]
+        keyboard.append(["🔙 برگشت"])
 
         reply_markup = ReplyKeyboardMarkup(
             keyboard,
@@ -101,23 +116,20 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["plan_type"] = "FAST"
 
         await update.message.reply_text(
-            f"""
-🔥 کانفیگ VIP NET
+            """
+🔥 نت ملی پرسرعت VIP
 
 ✅ مناسب:
-اینستاگرام
-تلگرام
-تیک‌تاک
-یوتیوب
+• اینستاگرام
+• تلگرام
+• واتساپ
+• تیک‌تاک
+• ایمو
+• یوتیوب
 
-🚀 سرعت بسیار بالا
-✅ بدون نیاز به بروزرسانی
+⚡ سرعت بسیار بالا
 
-💰 تعرفه ها:
-
-{plans}
-
-برای پرداخت روی «کارت به کارت» بزنید 👇
+لطفاً حجم موردنظر را انتخاب کنید 👇
 """,
             reply_markup=reply_markup
         )
@@ -126,14 +138,8 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "💬 نت ملی چت و پیام‌رسان":
 
-        plans = "\n".join(
-            [f"{k} ➜ {v}" for k, v in CHAT_NET_PRICES.items()]
-        )
-
-        keyboard = [
-            ["💳 کارت به کارت"],
-            ["🔙 برگشت"]
-        ]
+        keyboard = [[gig] for gig in CHAT_NET_PRICES.keys()]
+        keyboard.append(["🔙 برگشت"])
 
         reply_markup = ReplyKeyboardMarkup(
             keyboard,
@@ -143,33 +149,38 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["plan_type"] = "CHAT"
 
         await update.message.reply_text(
-            f"""
-💬 کانفیگ CHAT NET
+            """
+💬 نت ملی چت
 
 ✅ مناسب:
-واتساپ
-تلگرام
-ایمو
-روبیکا
+• واتساپ
+• تلگرام
+• ایمو
 
-⚠️ هر 12 ساعت نیاز به بروزرسانی دارد
+⚡ مخصوص پیام‌رسان ها
 
-💰 تعرفه ها:
-
-{plans}
-
-برای پرداخت روی «کارت به کارت» بزنید 👇
+لطفاً حجم موردنظر را انتخاب کنید 👇
 """,
             reply_markup=reply_markup
         )
 
-    # ================= PAYMENT =================
+    # ================= SELECT FAST PLAN =================
 
-    elif text == "💳 کارت به کارت":
+    elif text in FAST_NET_PRICES:
+
+        price = FAST_NET_PRICES[text]
 
         await update.message.reply_text(
             f"""
 💳 اطلاعات پرداخت
+
+📦 حجم انتخابی:
+{text}
+
+💰 مبلغ:
+{price}
+
+━━━━━━━━━━━━━━
 
 👤 نام صاحب کارت:
 {CARD_NAME}
@@ -179,7 +190,42 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ━━━━━━━━━━━━━━
 
-⚠️ بعد از واریز رسید را به پشتیبانی ارسال کنید.
+⚠️ لطفاً مبلغ را واریز کنید
+و رسید را به پشتیبانی ارسال نمایید.
+
+🛠 پشتیبانی:
+{SUPPORT_ID}
+"""
+        )
+
+    # ================= SELECT CHAT PLAN =================
+
+    elif text in CHAT_NET_PRICES:
+
+        price = CHAT_NET_PRICES[text]
+
+        await update.message.reply_text(
+            f"""
+💳 اطلاعات پرداخت
+
+📦 حجم انتخابی:
+{text}
+
+💰 مبلغ:
+{price}
+
+━━━━━━━━━━━━━━
+
+👤 نام صاحب کارت:
+{CARD_NAME}
+
+💳 شماره کارت:
+{CARD_NUMBER}
+
+━━━━━━━━━━━━━━
+
+⚠️ لطفاً مبلغ را واریز کنید
+و رسید را به پشتیبانی ارسال نمایید.
 
 🛠 پشتیبانی:
 {SUPPORT_ID}
@@ -194,10 +240,23 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"""
 🛠 پشتیبانی آنلاین
 
-هر مشکلی داشتید پیام بدهید ✅
+درصورت مشکل پیام بدهید ✅
 
-آیدی پشتیبانی:
 {SUPPORT_ID}
+"""
+        )
+
+    # ================= CHANNEL =================
+
+    elif text == "📢 کانال ما":
+
+        await update.message.reply_text(
+            f"""
+📢 کانال رسمی ما:
+
+{CHANNEL_LINK}
+
+🎁 کانفیگ رایگان و تخفیف هم قرار می‌گیرد.
 """
         )
 
@@ -215,13 +274,13 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"""
-🔥 تعرفه VIP NET
+🔥 تعرفه نت پرسرعت
 
 {fast_prices}
 
 ━━━━━━━━━━━━━━
 
-💬 تعرفه CHAT NET
+💬 تعرفه نت چت
 
 {chat_prices}
 """
@@ -231,20 +290,9 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "🔙 برگشت":
 
-        keyboard = [
-            ["🔥 نت ملی اینستاگرام + تلگرام"],
-            ["💬 نت ملی چت و پیام‌رسان"],
-            ["💰 تعرفه ها", "🛠 پشتیبانی"]
-        ]
-
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True
-        )
-
         await update.message.reply_text(
             "🔙 به منوی اصلی برگشتید.",
-            reply_markup=reply_markup
+            reply_markup=main_menu()
         )
 
     # ================= INVALID =================
