@@ -1,6 +1,7 @@
-import os
 import sqlite3
 import logging
+import os
+import time
 from datetime import datetime
 
 from telegram import (
@@ -12,9 +13,9 @@ from telegram import (
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
+    MessageHandler,
     filters,
 )
 
@@ -22,13 +23,15 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = "8907973283:AAG_2FPr84WYR1JFKy8abqQcc-7b0LHNtUA"
 
 ADMIN_ID = 8460547264
 
 SUPPORT_ID = "@ZenVPN_ir"
 
 CHANNEL_LINK = "https://t.me/+GA5A2MMOUglmMzE0"
+
+CHANNEL_USERNAME = "@ZenVPN_ir"
 
 CARD_NAME = "محمدی ریاض"
 
@@ -40,342 +43,425 @@ CARD_NUMBER = "6037691790069355"
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+    level=logging.INFO
 )
-
-logger = logging.getLogger(__name__)
 
 # =========================
 # DATABASE
 # =========================
 
+conn = sqlite3.connect(
+    "orders.db",
+    check_same_thread=False
+)
 
-def get_db():
-    conn = sqlite3.connect("orders.db", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-db = get_db()
-cursor = db.cursor()
+cursor = conn.cursor()
 
 cursor.execute(
     """
-CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    username TEXT,
-    plan_type TEXT,
-    plan TEXT,
-    price TEXT,
-    status TEXT,
-    created_at TEXT
-)
-"""
+    CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        plan TEXT,
+        price TEXT,
+        status TEXT,
+        created_at TEXT
+    )
+    """
 )
 
-db.commit()
+conn.commit()
 
 # =========================
 # PRICES
 # =========================
 
-FAST_NET_PRICES = {
-    "1": ("1 گیگ", "290 هزار تومان"),
-    "2": ("2 گیگ", "580 هزار تومان"),
-    "3": ("3 گیگ", "870 هزار تومان"),
-    "5": ("5 گیگ", "1,450,000 تومان"),
-    "10": ("10 گیگ", "2,900,000 تومان"),
+VIP_PRICES = {
+    "1 گیگ": "284 هزار تومان",
+    "2 گیگ": "568 هزار تومان",
+    "3 گیگ": "852 هزار تومان",
+    "5 گیگ": "1,420,000 تومان",
+    "10 گیگ": "2,840,000 تومان"
 }
 
-# نت مخصوص اینستاگرام / تلگرام / تیک‌تاک
-
-CHAT_NET_PRICES = {
-    "1": ("1 گیگ", "187 هزار تومان"),
-    "2": ("2 گیگ", "374 هزار تومان"),
-    "3": ("3 گیگ", "561 هزار تومان"),
-    "5": ("5 گیگ", "935 هزار تومان"),
-    "10": ("10 گیگ", "1,870,000 تومان"),
+CHEAP_PRICES = {
+    "1 گیگ": "185 هزار تومان",
+    "2 گیگ": "370 هزار تومان",
+    "3 گیگ": "555 هزار تومان",
+    "5 گیگ": "925 هزار تومان",
+    "10 گیگ": "1,850,000 تومان"
 }
-
-# نت مخصوص چت واتساپ / تلگرام / ایمو
 
 # =========================
-# HELPERS
+# SPAM PROTECTION
+# =========================
+
+spam_protection = {}
+
+
+def anti_spam(user_id):
+
+    now = time.time()
+
+    if user_id in spam_protection:
+
+        if now - spam_protection[user_id] < 2:
+            return False
+
+    spam_protection[user_id] = now
+
+    return True
+
+# =========================
+# MEMBERSHIP CHECK
+# =========================
+
+async def check_member(bot, user_id):
+
+    try:
+
+        member = await bot.get_chat_member(
+            CHANNEL_USERNAME,
+            user_id
+        )
+
+        return member.status in [
+            "member",
+            "administrator",
+            "creator"
+        ]
+
+    except:
+
+        return False
+
+# =========================
+# MAIN MENU
 # =========================
 
 
 def main_menu():
+
     keyboard = [
+
         [
             InlineKeyboardButton(
-                "🔥 نت ملی پرسرعت",
-                callback_data="fast",
+                "🔥 خرید کانفیگ",
+                callback_data="vip"
             )
         ],
+
         [
             InlineKeyboardButton(
-                "💬 نت چت",
-                callback_data="chat",
+                "💎 پنل اقتصادی",
+                callback_data="cheap"
             )
         ],
+
         [
             InlineKeyboardButton(
-                "📚 آموزش اتصال",
-                callback_data="learn",
+                "🎁 دریافت کانفیگ رایگان",
+                callback_data="free"
             )
         ],
+
         [
             InlineKeyboardButton(
-                "📢 کانال",
-                url=CHANNEL_LINK,
+                "💰 قیمت همکاری",
+                callback_data="co"
             )
         ],
+
         [
             InlineKeyboardButton(
                 "🛠 پشتیبانی",
-                url=f"https://t.me/{SUPPORT_ID.replace('@', '')}",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "💰 تعرفه‌ها",
-                callback_data="prices",
+                callback_data="support"
             )
         ],
 
         [
             InlineKeyboardButton(
-                "🎁 کانفیگ رایگان",
-                url=CHANNEL_LINK,
+                "📢 کانال رسمی",
+                url=CHANNEL_LINK
             )
-        ],
+        ]
 
-        [
-            InlineKeyboardButton(
-                "❓ اگر مشکل دارید",
-                url=f"https://t.me/{SUPPORT_ID.replace('@', '')}",
-            )
-        ],
     ]
 
     return InlineKeyboardMarkup(keyboard)
-
-
-async def safe_edit(query, text, reply_markup=None):
-    try:
-        await query.message.edit_text(
-            text,
-            reply_markup=reply_markup,
-        )
-    except Exception as e:
-        logger.warning(f"Edit message failed: {e}")
-
 
 # =========================
 # START
 # =========================
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user = update.effective_user
+
+    member = await check_member(
+        context.bot,
+        user.id
+    )
+
+    if not member:
+
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "📢 عضویت در کانال",
+                    url=CHANNEL_LINK
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "✅ عضو شدم",
+                    callback_data="check_join"
+                )
+            ]
+        ])
+
+        await update.message.reply_text(
+            """
+❌ برای استفاده از ربات ابتدا عضو کانال شوید
+""",
+            reply_markup=keyboard
+        )
+
+        return
+
     text = f"""
-🔥 به فروشگاه VipNet خوش آمدید
+🔥 به فروشگاه رسمی ZenVPN خوش آمدید
 
 ━━━━━━━━━━━━━━
 
-⚡ فروش کانفیگ نت ملی
+⚡ اینترنت مخصوص شبکه‌های اجتماعی
+⚡ سرعت بالا و پایدار
+⚡ تحویل سریع
+⚡ پشتیبانی فعال
 
-✅ سرعت بالا
-✅ تحویل سریع
-✅ پشتیبانی فعال
+━━━━━━━━━━━━━━
+
+✅ مناسب اینستاگرام
+✅ تلگرام
+✅ واتساپ
+✅ یوتیوب
+✅ تیک‌تاک
 
 ━━━━━━━━━━━━━━
 
-📢 کانال:
-{CHANNEL_LINK}
-
-━━━━━━━━━━━━━━
+🛠 پشتیبانی:
+{SUPPORT_ID}
 
 لطفاً انتخاب کنید 👇
 """
 
     await update.message.reply_text(
         text,
-        reply_markup=main_menu(),
+        reply_markup=main_menu()
     )
-
 
 # =========================
 # CALLBACKS
 # =========================
 
-
 async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     query = update.callback_query
+
+    user = query.from_user
+
+    if not anti_spam(user.id):
+
+        await query.answer(
+            "کمی صبر کنید",
+            show_alert=True
+        )
+
+        return
 
     await query.answer()
 
     data = query.data
 
     # =====================
-    # FAST
+    # CHECK JOIN
     # =====================
 
-    if data == "fast":
-        keyboard = []
+    if data == "check_join":
 
-        for key, value in FAST_NET_PRICES.items():
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        value[0],
-                        callback_data=f"buy|fast|{key}",
-                    )
-                ]
+        member = await check_member(
+            context.bot,
+            user.id
+        )
+
+        if not member:
+
+            await query.answer(
+                "هنوز عضو کانال نشدید",
+                show_alert=True
             )
 
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    "🔙 بازگشت",
-                    callback_data="back",
-                )
-            ]
-        )
+            return
 
-        await safe_edit(
-            query,
-            """
-🔥 نت ملی پرسرعت
+        await query.message.delete()
 
-✅ اینستاگرام
-✅ تلگرام
-✅ واتساپ
-✅ یوتیوب
+        text = """
+✅ عضویت تایید شد
 
-حجم را انتخاب کنید 👇
-""",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+دوباره /start را ارسال کنید
+"""
+
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=text
         )
 
     # =====================
-    # CHAT
+    # VIP PANEL
     # =====================
 
-    elif data == "chat":
+    elif data == "vip":
+
         keyboard = []
 
-        for key, value in CHAT_NET_PRICES.items():
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        value[0],
-                        callback_data=f"buy|chat|{key}",
-                    )
-                ]
-            )
+        for plan in VIP_PRICES:
 
-        keyboard.append(
-            [
+            keyboard.append([
                 InlineKeyboardButton(
-                    "🔙 بازگشت",
-                    callback_data="back",
+                    f"{plan} ➜ {VIP_PRICES[plan]}",
+                    callback_data=f"buy_vip_{plan}"
                 )
-            ]
+            ])
+
+        keyboard.append([
+            InlineKeyboardButton(
+                "🔙 بازگشت",
+                callback_data="back"
+            )
+        ])
+
+        await query.message.edit_text(
+            """
+🔥 پنل VIP اجتماعی
+
+✅ مناسب:
+• اینستاگرام
+• تلگرام
+• واتساپ
+• تیک‌تاک
+• یوتیوب
+
+⚡ سرعت بالا
+⚡ پینگ مناسب
+⚡ پایداری بهتر
+
+📦 حجم موردنظر را انتخاب کنید 👇
+""",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-        await safe_edit(
-            query,
+    # =====================
+    # CHEAP PANEL
+    # =====================
+
+    elif data == "cheap":
+
+        keyboard = []
+
+        for plan in CHEAP_PRICES:
+
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"{plan} ➜ {CHEAP_PRICES[plan]}",
+                    callback_data=f"buy_cheap_{plan}"
+                )
+            ])
+
+        keyboard.append([
+            InlineKeyboardButton(
+                "🔙 بازگشت",
+                callback_data="back"
+            )
+        ])
+
+        await query.message.edit_text(
             """
-💬 نت چت
+💎 پنل اقتصادی و چت
 
-✅ تلگرام
-✅ واتساپ
+✅ مناسب:
+• تلگرام
+• واتساپ
+• ایمو
+• پیام‌رسان خارجی
 
-⚠️ فقط پیام‌رسان
+⚠️ فقط مناسب چت
+⚠️ ممکن است گاهی ناپایدار شود
 
-حجم را انتخاب کنید 👇
+📦 حجم موردنظر را انتخاب کنید 👇
 """,
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     # =====================
     # BUY
     # =====================
 
-    elif data.startswith("buy|"):
-        split_data = data.split("|")
+    elif data.startswith("buy_"):
+
+        split_data = data.split("_")
 
         plan_type = split_data[1]
-        plan_key = split_data[2]
 
-        # جلوگیری از سفارش تکراری
+        plan = split_data[2]
 
-        user_id = query.from_user.id
-
-        cursor.execute(
-            """
-            SELECT * FROM orders
-            WHERE user_id = ?
-            AND status = 'PENDING'
-            """,
-            (user_id,),
-        )
-
-        existing = cursor.fetchone()
-
-        if existing:
-            await query.answer(
-                "شما یک سفارش در انتظار دارید",
-                show_alert=True,
-            )
-            return
-
-        if plan_type == "fast":
-            plan, price = FAST_NET_PRICES[plan_key]
-            title = "🔥 نت پرسرعت"
+        if plan_type == "vip":
+            price = VIP_PRICES[plan]
         else:
-            plan, price = CHAT_NET_PRICES[plan_key]
-            title = "💬 نت چت"
-
-        user = query.from_user
-
-        username = user.username or "NoUsername"
+            price = CHEAP_PRICES[plan]
 
         cursor.execute(
             """
             INSERT INTO orders (
                 user_id,
                 username,
-                plan_type,
                 plan,
                 price,
                 status,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 user.id,
-                username,
-                plan_type,
+                user.username,
                 plan,
                 price,
                 "PENDING",
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            ),
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            )
         )
 
-        db.commit()
+        conn.commit()
 
         order_id = cursor.lastrowid
 
-        context.user_data["waiting_receipt"] = order_id
+        context.user_data["receipt"] = order_id
 
-        await safe_edit(
-            query,
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "❌ لغو سفارش",
+                    callback_data="back"
+                )
+            ]
+        ])
+
+        await query.message.edit_text(
             f"""
-{title}
+🧾 ثبت سفارش
 
 ━━━━━━━━━━━━━━
 
@@ -395,75 +481,93 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ━━━━━━━━━━━━━━
 
-⚠️ لطفاً مبلغ را واریز کنید
-و سپس عکس رسید را همینجا ارسال نمایید.
-
 🧾 شماره سفارش:
 #{order_id}
+
+⚠️ لطفاً مبلغ را واریز کرده
+و سپس عکس رسید را ارسال کنید.
+
+✅ سفارش شما بعد از تایید پرداخت
+در سریع‌ترین زمان بررسی می‌شود.
 """,
+            reply_markup=keyboard
         )
 
     # =====================
-    # LEARN
+    # SUPPORT
     # =====================
 
-    elif data == "learn":
-        await safe_edit(
-            query,
-            f"""
-📚 آموزش اتصال
+    elif data == "support":
 
-برای دریافت آموزش:
+        await query.message.edit_text(
+            f"""
+🛠 پشتیبانی ZenVPN
+
+درصورت وجود هرگونه مشکل:
+
 {SUPPORT_ID}
 """,
-            reply_markup=InlineKeyboardMarkup(
+            reply_markup=InlineKeyboardMarkup([
                 [
-                    [
-                        InlineKeyboardButton(
-                            "🔙 بازگشت",
-                            callback_data="back",
-                        )
-                    ]
+                    InlineKeyboardButton(
+                        "🔙 بازگشت",
+                        callback_data="back"
+                    )
                 ]
-            ),
+            ])
         )
 
     # =====================
-    # PRICES
+    # FREE CONFIG
     # =====================
 
-    elif data == "prices":
-        fast_prices = "\n".join(
-            [f"{v[0]} ➜ {v[1]}" for v in FAST_NET_PRICES.values()]
-        )
+    elif data == "free":
 
-        chat_prices = "\n".join(
-            [f"{v[0]} ➜ {v[1]}" for v in CHAT_NET_PRICES.values()]
-        )
-
-        await safe_edit(
-            query,
+        await query.message.edit_text(
             f"""
-🔥 تعرفه نت پرسرعت
+🎁 دریافت کانفیگ رایگان
 
-{fast_prices}
+1️⃣ عضو کانال شوید
+2️⃣ سپس به پشتیبانی پیام دهید
 
-━━━━━━━━━━━━━━
+📢 کانال:
+{CHANNEL_LINK}
 
-💬 تعرفه نت چت
-
-{chat_prices}
+🛠 پشتیبانی:
+{SUPPORT_ID}
 """,
-            reply_markup=InlineKeyboardMarkup(
+            reply_markup=InlineKeyboardMarkup([
                 [
-                    [
-                        InlineKeyboardButton(
-                            "🔙 بازگشت",
-                            callback_data="back",
-                        )
-                    ]
+                    InlineKeyboardButton(
+                        "🔙 بازگشت",
+                        callback_data="back"
+                    )
                 ]
-            ),
+            ])
+        )
+
+    # =====================
+    # COOPERATION
+    # =====================
+
+    elif data == "co":
+
+        await query.message.edit_text(
+            f"""
+💰 قیمت همکاری
+
+برای دریافت تعرفه همکاری:
+
+{SUPPORT_ID}
+""",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "🔙 بازگشت",
+                        callback_data="back"
+                    )
+                ]
+            ])
         )
 
     # =====================
@@ -471,10 +575,10 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # =====================
 
     elif data == "back":
-        await safe_edit(
-            query,
+
+        await query.message.edit_text(
             "🏠 منوی اصلی",
-            reply_markup=main_menu(),
+            reply_markup=main_menu()
         )
 
     # =====================
@@ -482,54 +586,35 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # =====================
 
     elif data.startswith("approve_"):
-        if query.from_user.id != ADMIN_ID:
-            await query.answer(
-                "دسترسی ندارید",
-                show_alert=True,
-            )
-            return
 
         order_id = data.split("_")[1]
 
         cursor.execute(
-            """
-            UPDATE orders
-            SET status = ?
-            WHERE id = ?
-            """,
-            ("APPROVED", order_id),
+            "UPDATE orders SET status = ? WHERE id = ?",
+            ("APPROVED", order_id)
         )
 
-        db.commit()
+        conn.commit()
 
         cursor.execute(
             "SELECT user_id FROM orders WHERE id = ?",
-            (order_id,),
+            (order_id,)
         )
 
-        row = cursor.fetchone()
-
-        if not row:
-            return
-
-        user_id = row[0]
+        user_id = cursor.fetchone()[0]
 
         await context.bot.send_message(
-            chat_id=user_id,
-            text="""
+            user_id,
+            f"""
 ✅ پرداخت شما تایید شد
 
-🛠 لطفاً جهت دریافت کانفیگ
-به پشتیبانی پیام دهید:
-
-@ZenVPN_ir
-""",
+🛠 جهت دریافت کانفیگ:
+{SUPPORT_ID}
+"""
         )
 
-        caption = query.message.caption or ""
-
         await query.message.edit_caption(
-            caption=caption + "\n\n✅ تایید شد"
+            caption=query.message.caption + "\n\n✅ تایید شد"
         )
 
     # =====================
@@ -537,115 +622,75 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # =====================
 
     elif data.startswith("reject_"):
-        if query.from_user.id != ADMIN_ID:
-            await query.answer(
-                "دسترسی ندارید",
-                show_alert=True,
-            )
-            return
 
         order_id = data.split("_")[1]
 
         cursor.execute(
-            """
-            UPDATE orders
-            SET status = ?
-            WHERE id = ?
-            """,
-            ("REJECTED", order_id),
+            "UPDATE orders SET status = ? WHERE id = ?",
+            ("REJECTED", order_id)
         )
 
-        db.commit()
+        conn.commit()
 
         cursor.execute(
             "SELECT user_id FROM orders WHERE id = ?",
-            (order_id,),
+            (order_id,)
         )
 
-        row = cursor.fetchone()
-
-        if not row:
-            return
-
-        user_id = row[0]
+        user_id = cursor.fetchone()[0]
 
         await context.bot.send_message(
-            chat_id=user_id,
-            text="""
-❌ رسید شما تایید نشد
-
-لطفاً مجدد بررسی و ارسال کنید.
-""",
+            user_id,
+            "❌ رسید تایید نشد"
         )
-
-        caption = query.message.caption or ""
 
         await query.message.edit_caption(
-            caption=caption + "\n\n❌ رد شد"
+            caption=query.message.caption + "\n\n❌ رد شد"
         )
-
 
 # =========================
 # RECEIPT HANDLER
 # =========================
 
-
 async def receipt_handler(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    context: ContextTypes.DEFAULT_TYPE
 ):
-    if "waiting_receipt" not in context.user_data:
+
+    user = update.effective_user
+
+    if "receipt" not in context.user_data:
+
         await update.message.reply_text(
-            "❌ ابتدا یک پلن انتخاب کنید."
+            "❌ ابتدا خرید انجام دهید"
         )
+
         return
 
-    order_id = context.user_data["waiting_receipt"]
+    order_id = context.user_data["receipt"]
 
-    user = update.message.from_user
+    photo = update.message.photo[-1]
 
-    keyboard = InlineKeyboardMarkup(
+    keyboard = InlineKeyboardMarkup([
         [
-            [
-                InlineKeyboardButton(
-                    "✅ تایید",
-                    callback_data=f"approve_{order_id}",
-                ),
-                InlineKeyboardButton(
-                    "❌ رد",
-                    callback_data=f"reject_{order_id}",
-                ),
-            ]
+            InlineKeyboardButton(
+                "✅ تایید",
+                callback_data=f"approve_{order_id}"
+            ),
+            InlineKeyboardButton(
+                "❌ رد",
+                callback_data=f"reject_{order_id}"
+            )
         ]
-    )
-
-    # عکس
-
-    if update.message.photo:
-        file_id = update.message.photo[-1].file_id
-
-    # فایل عکس
-
-    elif (
-        update.message.document
-        and update.message.document.mime_type
-        and update.message.document.mime_type.startswith("image/")
-    ):
-        file_id = update.message.document.file_id
-
-    else:
-        await update.message.reply_text(
-            "❌ لطفاً فقط تصویر رسید ارسال کنید"
-        )
-        return
+    ])
 
     await context.bot.send_photo(
         chat_id=ADMIN_ID,
-        photo=file_id,
+        photo=photo.file_id,
         caption=f"""
 🧾 رسید جدید
 
-👤 کاربر:
+👤 نام:
 {user.first_name}
 
 🆔 آیدی:
@@ -654,40 +699,27 @@ async def receipt_handler(
 📦 سفارش:
 #{order_id}
 """,
-        reply_markup=keyboard,
+        reply_markup=keyboard
     )
 
     await update.message.reply_text(
         """
 ✅ رسید دریافت شد
 
-بعد از تایید ادمین،
+بعد از تایید ادمین
 وضعیت سفارش اعلام می‌شود.
 """
     )
 
-    del context.user_data["waiting_receipt"]
-
-
-# =========================
-# FALLBACK MESSAGE
-# =========================
-
-
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "برای شروع از /start استفاده کنید"
-    )
-
+    del context.user_data["receipt"]
 
 # =========================
 # ERROR HANDLER
 # =========================
 
-
 async def error_handler(update, context):
-    logger.exception(context.error)
 
+    print(context.error)
 
 # =========================
 # MAIN
@@ -695,43 +727,34 @@ async def error_handler(update, context):
 
 
 def main():
-    if not TOKEN:
-        raise ValueError("BOT_TOKEN تنظیم نشده")
 
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-
-    app.add_handler(CallbackQueryHandler(callbacks))
+    app.add_handler(
+        CommandHandler("start", start)
+    )
 
     app.add_handler(
-        MessageHandler(
-            filters.PHOTO | filters.Document.IMAGE,
-            receipt_handler,
-        )
+        CallbackQueryHandler(callbacks)
     )
 
     app.add_handler(
         MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            text_handler,
+            filters.PHOTO,
+            receipt_handler
         )
     )
 
     app.add_error_handler(error_handler)
 
-    logger.info("BOT IS ONLINE ✅")
+    print("ZENVPN BOT ONLINE ✅")
 
     app.run_polling()
-
 
 # =========================
 # RUN
 # =========================
 
-
 if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        db.close()
+
+    main()
