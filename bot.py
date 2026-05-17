@@ -1,188 +1,375 @@
-from telegram import ReplyKeyboardMarkup, Update
+import os
+import sqlite3
+import logging
+from datetime import datetime
+
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
-    filters
+    filters,
 )
 
-# ================= SETTINGS =================
+# =========================
+# CONFIG
+# =========================
 
-TOKEN = "8907973283:AAG_2FPr84WYR1JFKy8abqQcc-7b0LHNtUA"
+TOKEN = os.getenv("8907973283:AAG_2FPr84WYR1JFKy8abqQcc-7b0LHNtUA")
+
+ADMIN_ID = 8460547264
 
 SUPPORT_ID = "@ZenVPN_ir"
 
 CHANNEL_LINK = "https://t.me/+GA5A2MMOUglmMzE0"
 
 CARD_NAME = "محمدی ریاض"
+
 CARD_NUMBER = "6037691790069355"
 
-# ================= PRICE LIST =================
+# =========================
+# LOGGING
+# =========================
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+
+logger = logging.getLogger(__name__)
+
+# =========================
+# DATABASE
+# =========================
+
+
+def get_db():
+    conn = sqlite3.connect("orders.db", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+db = get_db()
+cursor = db.cursor()
+
+cursor.execute(
+    """
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    username TEXT,
+    plan_type TEXT,
+    plan TEXT,
+    price TEXT,
+    status TEXT,
+    created_at TEXT
+)
+"""
+)
+
+db.commit()
+
+# =========================
+# PRICES
+# =========================
 
 FAST_NET_PRICES = {
-    "1 گیگ": "290 هزار تومان",
-    "2 گیگ": "580 هزار تومان",
-    "3 گیگ": "870 هزار تومان",
-    "4 گیگ": "1,160,000 تومان",
-    "5 گیگ": "1,450,000 تومان",
-    "6 گیگ": "1,740,000 تومان",
-    "7 گیگ": "2,030,000 تومان",
-    "8 گیگ": "2,320,000 تومان",
-    "9 گیگ": "2,610,000 تومان",
-    "10 گیگ": "2,900,000 تومان"
+    "1": ("1 گیگ", "290 هزار تومان"),
+    "2": ("2 گیگ", "580 هزار تومان"),
+    "3": ("3 گیگ", "870 هزار تومان"),
+    "5": ("5 گیگ", "1,450,000 تومان"),
+    "10": ("10 گیگ", "2,900,000 تومان"),
 }
 
 CHAT_NET_PRICES = {
-    "1 گیگ": "190 هزار تومان",
-    "2 گیگ": "380 هزار تومان",
-    "3 گیگ": "570 هزار تومان",
-    "4 گیگ": "760 هزار تومان",
-    "5 گیگ": "950 هزار تومان",
-    "6 گیگ": "1,140,000 تومان",
-    "7 گیگ": "1,330,000 تومان",
-    "8 گیگ": "1,520,000 تومان",
-    "9 گیگ": "1,710,000 تومان",
-    "10 گیگ": "1,900,000 تومان"
+    "1": ("1 گیگ", "190 هزار تومان"),
+    "2": ("2 گیگ", "380 هزار تومان"),
+    "3": ("3 گیگ", "570 هزار تومان"),
+    "5": ("5 گیگ", "950 هزار تومان"),
+    "10": ("10 گیگ", "1,900,000 تومان"),
 }
 
-# ================= MAIN MENU =================
+# =========================
+# HELPERS
+# =========================
+
 
 def main_menu():
-
     keyboard = [
-        ["🔥 نت ملی اینستاگرام + تلگرام + واتساپ"],
-        ["💬 نت ملی چت و پیام‌رسان"],
-        ["📢 کانال ما", "🛠 پشتیبانی"],
-        ["💰 تعرفه ها"]
+        [
+            InlineKeyboardButton(
+                "🔥 نت ملی پرسرعت",
+                callback_data="fast",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "💬 نت چت",
+                callback_data="chat",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📚 آموزش اتصال",
+                callback_data="learn",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📢 کانال",
+                url=CHANNEL_LINK,
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🛠 پشتیبانی",
+                url=f"https://t.me/{SUPPORT_ID.replace('@', '')}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "💰 تعرفه‌ها",
+                callback_data="prices",
+            )
+        ],
     ]
 
-    return ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True
-    )
+    return InlineKeyboardMarkup(keyboard)
 
-# ================= START =================
+
+async def safe_edit(query, text, reply_markup=None):
+    try:
+        await query.message.edit_text(
+            text,
+            reply_markup=reply_markup,
+        )
+    except Exception as e:
+        logger.warning(f"Edit message failed: {e}")
+
+
+# =========================
+# START
+# =========================
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     text = f"""
 🔥 به فروشگاه VipNet خوش آمدید
 
-📢 قبل از خرید وارد کانال شوید:
-{CHANNEL_LINK}
+━━━━━━━━━━━━━━
 
-🎁 داخل کانال:
-• قیمت های جدید
-• تخفیف ها
-• کانفیگ رایگان
+⚡ فروش کانفیگ نت ملی
 
-قرار داده می‌شود ✅
+✅ سرعت بالا
+✅ تحویل سریع
+✅ پشتیبانی فعال
 
 ━━━━━━━━━━━━━━
 
-🔐 فروش کانفیگ نت ملی
+📢 کانال:
+{CHANNEL_LINK}
 
-✅ سرعت بالا
-✅ تحویل فوری
-✅ پشتیبانی فعال
+━━━━━━━━━━━━━━
 
-لطفاً یکی از گزینه‌ها را انتخاب کنید 👇
+لطفاً انتخاب کنید 👇
 """
 
     await update.message.reply_text(
         text,
-        reply_markup=main_menu()
+        reply_markup=main_menu(),
     )
 
-# ================= MESSAGE HANDLER =================
 
-async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================
+# CALLBACKS
+# =========================
 
-    text = update.message.text
 
-    # ================= FAST NET =================
+async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
 
-    if text == "🔥 نت ملی اینستاگرام + تلگرام + واتساپ":
+    await query.answer()
 
-        keyboard = [[gig] for gig in FAST_NET_PRICES.keys()]
-        keyboard.append(["🔙 برگشت"])
+    data = query.data
 
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True
+    # =====================
+    # FAST
+    # =====================
+
+    if data == "fast":
+        keyboard = []
+
+        for key, value in FAST_NET_PRICES.items():
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        value[0],
+                        callback_data=f"buy|fast|{key}",
+                    )
+                ]
+            )
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت",
+                    callback_data="back",
+                )
+            ]
         )
 
-        context.user_data["plan_type"] = "FAST"
-
-        await update.message.reply_text(
+        await safe_edit(
+            query,
             """
-🔥 نت ملی پرسرعت VIP
+🔥 نت ملی پرسرعت
 
-✅ مناسب:
-• اینستاگرام
-• تلگرام
-• واتساپ
-• تیک‌تاک
-• ایمو
-• یوتیوب
+✅ اینستاگرام
+✅ تلگرام
+✅ واتساپ
+✅ یوتیوب
 
-⚡ سرعت بسیار بالا
-
-لطفاً حجم موردنظر را انتخاب کنید 👇
+حجم را انتخاب کنید 👇
 """,
-            reply_markup=reply_markup
+            reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
-    # ================= CHAT NET =================
+    # =====================
+    # CHAT
+    # =====================
 
-    elif text == "💬 نت ملی چت و پیام‌رسان":
+    elif data == "chat":
+        keyboard = []
 
-        keyboard = [[gig] for gig in CHAT_NET_PRICES.keys()]
-        keyboard.append(["🔙 برگشت"])
+        for key, value in CHAT_NET_PRICES.items():
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        value[0],
+                        callback_data=f"buy|chat|{key}",
+                    )
+                ]
+            )
 
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت",
+                    callback_data="back",
+                )
+            ]
         )
 
-        context.user_data["plan_type"] = "CHAT"
-
-        await update.message.reply_text(
+        await safe_edit(
+            query,
             """
-💬 نت ملی چت
+💬 نت چت
 
-✅ مناسب:
-• واتساپ
-• تلگرام
-• ایمو
+✅ تلگرام
+✅ واتساپ
 
-⚡ مخصوص پیام‌رسان ها
+⚠️ فقط پیام‌رسان
 
-لطفاً حجم موردنظر را انتخاب کنید 👇
+حجم را انتخاب کنید 👇
 """,
-            reply_markup=reply_markup
+            reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
-    # ================= SELECT FAST PLAN =================
+    # =====================
+    # BUY
+    # =====================
 
-    elif text in FAST_NET_PRICES:
+    elif data.startswith("buy|"):
+        split_data = data.split("|")
 
-        price = FAST_NET_PRICES[text]
+        plan_type = split_data[1]
+        plan_key = split_data[2]
 
-        await update.message.reply_text(
+        # جلوگیری از سفارش تکراری
+
+        user_id = query.from_user.id
+
+        cursor.execute(
+            """
+            SELECT * FROM orders
+            WHERE user_id = ?
+            AND status = 'PENDING'
+            """,
+            (user_id,),
+        )
+
+        existing = cursor.fetchone()
+
+        if existing:
+            await query.answer(
+                "شما یک سفارش در انتظار دارید",
+                show_alert=True,
+            )
+            return
+
+        if plan_type == "fast":
+            plan, price = FAST_NET_PRICES[plan_key]
+            title = "🔥 نت پرسرعت"
+        else:
+            plan, price = CHAT_NET_PRICES[plan_key]
+            title = "💬 نت چت"
+
+        user = query.from_user
+
+        username = user.username or "NoUsername"
+
+        cursor.execute(
+            """
+            INSERT INTO orders (
+                user_id,
+                username,
+                plan_type,
+                plan,
+                price,
+                status,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user.id,
+                username,
+                plan_type,
+                plan,
+                price,
+                "PENDING",
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ),
+        )
+
+        db.commit()
+
+        order_id = cursor.lastrowid
+
+        context.user_data["waiting_receipt"] = order_id
+
+        await safe_edit(
+            query,
             f"""
-💳 اطلاعات پرداخت
+{title}
 
-📦 حجم انتخابی:
-{text}
+━━━━━━━━━━━━━━
+
+📦 حجم:
+{plan}
 
 💰 مبلغ:
 {price}
 
 ━━━━━━━━━━━━━━
 
-👤 نام صاحب کارت:
+👤 صاحب کارت:
 {CARD_NAME}
 
 💳 شماره کارت:
@@ -191,88 +378,53 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ━━━━━━━━━━━━━━
 
 ⚠️ لطفاً مبلغ را واریز کنید
-و رسید را به پشتیبانی ارسال نمایید.
+و سپس عکس رسید را ارسال نمایید.
 
-🛠 پشتیبانی:
-{SUPPORT_ID}
-"""
+🧾 شماره سفارش:
+#{order_id}
+""",
         )
 
-    # ================= SELECT CHAT PLAN =================
+    # =====================
+    # LEARN
+    # =====================
 
-    elif text in CHAT_NET_PRICES:
-
-        price = CHAT_NET_PRICES[text]
-
-        await update.message.reply_text(
+    elif data == "learn":
+        await safe_edit(
+            query,
             f"""
-💳 اطلاعات پرداخت
+📚 آموزش اتصال
 
-📦 حجم انتخابی:
-{text}
-
-💰 مبلغ:
-{price}
-
-━━━━━━━━━━━━━━
-
-👤 نام صاحب کارت:
-{CARD_NAME}
-
-💳 شماره کارت:
-{CARD_NUMBER}
-
-━━━━━━━━━━━━━━
-
-⚠️ لطفاً مبلغ را واریز کنید
-و رسید را به پشتیبانی ارسال نمایید.
-
-🛠 پشتیبانی:
+برای دریافت آموزش:
 {SUPPORT_ID}
-"""
+""",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "🔙 بازگشت",
+                            callback_data="back",
+                        )
+                    ]
+                ]
+            ),
         )
 
-    # ================= SUPPORT =================
+    # =====================
+    # PRICES
+    # =====================
 
-    elif text == "🛠 پشتیبانی":
-
-        await update.message.reply_text(
-            f"""
-🛠 پشتیبانی آنلاین
-
-درصورت مشکل پیام بدهید ✅
-
-{SUPPORT_ID}
-"""
-        )
-
-    # ================= CHANNEL =================
-
-    elif text == "📢 کانال ما":
-
-        await update.message.reply_text(
-            f"""
-📢 کانال رسمی ما:
-
-{CHANNEL_LINK}
-
-🎁 کانفیگ رایگان و تخفیف هم قرار می‌گیرد.
-"""
-        )
-
-    # ================= PRICES =================
-
-    elif text == "💰 تعرفه ها":
-
+    elif data == "prices":
         fast_prices = "\n".join(
-            [f"{k} ➜ {v}" for k, v in FAST_NET_PRICES.items()]
+            [f"{v[0]} ➜ {v[1]}" for v in FAST_NET_PRICES.values()]
         )
 
         chat_prices = "\n".join(
-            [f"{k} ➜ {v}" for k, v in CHAT_NET_PRICES.items()]
+            [f"{v[0]} ➜ {v[1]}" for v in CHAT_NET_PRICES.values()]
         )
 
-        await update.message.reply_text(
+        await safe_edit(
+            query,
             f"""
 🔥 تعرفه نت پرسرعت
 
@@ -283,44 +435,285 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💬 تعرفه نت چت
 
 {chat_prices}
-"""
+""",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "🔙 بازگشت",
+                            callback_data="back",
+                        )
+                    ]
+                ]
+            ),
         )
 
-    # ================= BACK =================
+    # =====================
+    # BACK
+    # =====================
 
-    elif text == "🔙 برگشت":
+    elif data == "back":
+        await safe_edit(
+            query,
+            "🏠 منوی اصلی",
+            reply_markup=main_menu(),
+        )
 
+    # =====================
+    # APPROVE
+    # =====================
+
+    elif data.startswith("approve_"):
+        if query.from_user.id != ADMIN_ID:
+            await query.answer(
+                "دسترسی ندارید",
+                show_alert=True,
+            )
+            return
+
+        order_id = data.split("_")[1]
+
+        cursor.execute(
+            """
+            UPDATE orders
+            SET status = ?
+            WHERE id = ?
+            """,
+            ("APPROVED", order_id),
+        )
+
+        db.commit()
+
+        cursor.execute(
+            "SELECT user_id FROM orders WHERE id = ?",
+            (order_id,),
+        )
+
+        row = cursor.fetchone()
+
+        if not row:
+            return
+
+        user_id = row[0]
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="""
+✅ پرداخت شما تایید شد
+
+🛠 لطفاً جهت دریافت کانفیگ
+به پشتیبانی پیام دهید:
+
+@ZenVPN_ir
+""",
+        )
+
+        caption = query.message.caption or ""
+
+        await query.message.edit_caption(
+            caption=caption + "\n\n✅ تایید شد"
+        )
+
+    # =====================
+    # REJECT
+    # =====================
+
+    elif data.startswith("reject_"):
+        if query.from_user.id != ADMIN_ID:
+            await query.answer(
+                "دسترسی ندارید",
+                show_alert=True,
+            )
+            return
+
+        order_id = data.split("_")[1]
+
+        cursor.execute(
+            """
+            UPDATE orders
+            SET status = ?
+            WHERE id = ?
+            """,
+            ("REJECTED", order_id),
+        )
+
+        db.commit()
+
+        cursor.execute(
+            "SELECT user_id FROM orders WHERE id = ?",
+            (order_id,),
+        )
+
+        row = cursor.fetchone()
+
+        if not row:
+            return
+
+        user_id = row[0]
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="""
+❌ رسید شما تایید نشد
+
+لطفاً مجدد بررسی و ارسال کنید.
+""",
+        )
+
+        caption = query.message.caption or ""
+
+        await query.message.edit_caption(
+            caption=caption + "\n\n❌ رد شد"
+        )
+
+
+# =========================
+# RECEIPT HANDLER
+# =========================
+
+
+async def receipt_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    if "waiting_receipt" not in context.user_data:
         await update.message.reply_text(
-            "🔙 به منوی اصلی برگشتید.",
-            reply_markup=main_menu()
+            "❌ ابتدا یک پلن انتخاب کنید."
         )
+        return
 
-    # ================= INVALID =================
+    order_id = context.user_data["waiting_receipt"]
+
+    user = update.message.from_user
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ تایید",
+                    callback_data=f"approve_{order_id}",
+                ),
+                InlineKeyboardButton(
+                    "❌ رد",
+                    callback_data=f"reject_{order_id}",
+                ),
+            ]
+        ]
+    )
+
+    # عکس
+
+    if update.message.photo:
+        file_id = update.message.photo[-1].file_id
+
+    # فایل عکس
+
+    elif (
+        update.message.document
+        and update.message.document.mime_type
+        and update.message.document.mime_type.startswith("image/")
+    ):
+        file_id = update.message.document.file_id
 
     else:
-
         await update.message.reply_text(
-            "❌ لطفاً از دکمه‌های ربات استفاده کنید."
+            "❌ لطفاً فقط تصویر رسید ارسال کنید"
         )
+        return
 
-# ================= RUN BOT =================
+    await context.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=file_id,
+        caption=f"""
+🧾 رسید جدید
+
+👤 کاربر:
+{user.first_name}
+
+🆔 آیدی:
+{user.id}
+
+📦 سفارش:
+#{order_id}
+""",
+        reply_markup=keyboard,
+    )
+
+    await update.message.reply_text(
+        """
+✅ رسید دریافت شد
+
+بعد از تایید ادمین،
+وضعیت سفارش اعلام می‌شود.
+"""
+    )
+
+    del context.user_data["waiting_receipt"]
+
+
+# =========================
+# FALLBACK MESSAGE
+# =========================
+
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "برای شروع از /start استفاده کنید"
+    )
+
+
+# =========================
+# ERROR HANDLER
+# =========================
+
+
+async def error_handler(update, context):
+    logger.exception(context.error)
+
+
+# =========================
+# MAIN
+# =========================
+
 
 def main():
+    if not TOKEN:
+        raise ValueError("BOT_TOKEN تنظیم نشده")
 
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
 
+    app.add_handler(CallbackQueryHandler(callbacks))
+
     app.add_handler(
         MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            message
+            filters.PHOTO | filters.Document.IMAGE,
+            receipt_handler,
         )
     )
 
-    print("BOT IS ONLINE ✅")
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            text_handler,
+        )
+    )
+
+    app.add_error_handler(error_handler)
+
+    logger.info("BOT IS ONLINE ✅")
 
     app.run_polling()
 
+
+# =========================
+# RUN
+# =========================
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        db.close()()
