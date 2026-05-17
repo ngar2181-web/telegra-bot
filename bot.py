@@ -22,7 +22,7 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-TOKEN = os.getenv("8907973283:AAG_2FPr84WYR1JFKy8abqQcc-7b0LHNtUA")
+TOKEN = os.getenv("BOT_TOKEN")
 
 ADMIN_ID = 8460547264
 
@@ -88,13 +88,17 @@ FAST_NET_PRICES = {
     "10": ("10 گیگ", "2,900,000 تومان"),
 }
 
+# نت مخصوص اینستاگرام / تلگرام / تیک‌تاک
+
 CHAT_NET_PRICES = {
-    "1": ("1 گیگ", "190 هزار تومان"),
-    "2": ("2 گیگ", "380 هزار تومان"),
-    "3": ("3 گیگ", "570 هزار تومان"),
-    "5": ("5 گیگ", "950 هزار تومان"),
-    "10": ("10 گیگ", "1,900,000 تومان"),
+    "1": ("1 گیگ", "187 هزار تومان"),
+    "2": ("2 گیگ", "374 هزار تومان"),
+    "3": ("3 گیگ", "561 هزار تومان"),
+    "5": ("5 گیگ", "935 هزار تومان"),
+    "10": ("10 گیگ", "1,870,000 تومان"),
 }
+
+# نت مخصوص چت واتساپ / تلگرام / ایمو
 
 # =========================
 # HELPERS
@@ -137,6 +141,20 @@ def main_menu():
             InlineKeyboardButton(
                 "💰 تعرفه‌ها",
                 callback_data="prices",
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🎁 کانفیگ رایگان",
+                url=CHANNEL_LINK,
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "❓ اگر مشکل دارید",
+                url=f"https://t.me/{SUPPORT_ID.replace('@', '')}",
             )
         ],
     ]
@@ -378,7 +396,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ━━━━━━━━━━━━━━
 
 ⚠️ لطفاً مبلغ را واریز کنید
-و سپس عکس رسید را ارسال نمایید.
+و سپس عکس رسید را همینجا ارسال نمایید.
 
 🧾 شماره سفارش:
 #{order_id}
@@ -716,4 +734,4 @@ if __name__ == "__main__":
     try:
         main()
     finally:
-        db.close()()
+        db.close()
