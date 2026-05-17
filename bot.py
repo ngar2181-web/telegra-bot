@@ -1,6 +1,5 @@
 import sqlite3
 import logging
-import os
 import time
 from datetime import datetime
 
@@ -23,15 +22,15 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-TOKEN = "8907973283:AAG_2FPr84WYR1JFKy8abqQcc-7b0LHNtUA"
+TOKEN = "YOUR_BOT_TOKEN"
 
 ADMIN_ID = 8460547264
 
 SUPPORT_ID = "@ZenVPN_ir"
 
-CHANNEL_LINK = "https://t.me/+GA5A2MMOUglmMzE0"
+CHANNEL_LINK = "https://t.me/ZenVPN_i"
 
-CHANNEL_USERNAME = "@ZenVPN_ir"
+CHANNEL_USERNAME = "@ZenVPN_i"
 
 CARD_NAME = "محمدی ریاض"
 
@@ -78,19 +77,19 @@ conn.commit()
 # =========================
 
 VIP_PRICES = {
-    "1 گیگ": "284 هزار تومان",
-    "2 گیگ": "568 هزار تومان",
-    "3 گیگ": "852 هزار تومان",
-    "5 گیگ": "1,420,000 تومان",
-    "10 گیگ": "2,840,000 تومان"
+    "1 گیگ": "290 هزار تومان",
+    "2 گیگ": "580 هزار تومان",
+    "3 گیگ": "870 هزار تومان",
+    "5 گیگ": "1,450,000 تومان",
+    "10 گیگ": "2,900,000 تومان"
 }
 
 CHEAP_PRICES = {
-    "1 گیگ": "185 هزار تومان",
-    "2 گیگ": "370 هزار تومان",
-    "3 گیگ": "555 هزار تومان",
-    "5 گیگ": "925 هزار تومان",
-    "10 گیگ": "1,850,000 تومان"
+    "1 گیگ": "190 هزار تومان",
+    "2 گیگ": "380 هزار تومان",
+    "3 گیگ": "570 هزار تومان",
+    "5 گیگ": "950 هزار تومان",
+    "10 گیگ": "1,900,000 تومان"
 }
 
 # =========================
@@ -98,7 +97,6 @@ CHEAP_PRICES = {
 # =========================
 
 spam_protection = {}
-
 
 def anti_spam(user_id):
 
@@ -129,17 +127,16 @@ async def check_member(bot, user_id):
         return member.status in [
             "member",
             "administrator",
-            "creator"
+            "creator",
+            "owner"
         ]
 
     except:
-
         return False
 
 # =========================
 # MAIN MENU
 # =========================
-
 
 def main_menu():
 
@@ -147,21 +144,21 @@ def main_menu():
 
         [
             InlineKeyboardButton(
-                "🔥 خرید کانفیگ",
+                "🔥 نت ملی اینستاگرام + تلگرام + واتساپ",
                 callback_data="vip"
             )
         ],
 
         [
             InlineKeyboardButton(
-                "💎 پنل اقتصادی",
+                "💬 نت ملی چت و پیامرسان",
                 callback_data="cheap"
             )
         ],
 
         [
             InlineKeyboardButton(
-                "🎁 دریافت کانفیگ رایگان",
+                "🎁 کانفیگ رایگان",
                 callback_data="free"
             )
         ],
@@ -182,7 +179,7 @@ def main_menu():
 
         [
             InlineKeyboardButton(
-                "📢 کانال رسمی",
+                "📢 کانال ما",
                 url=CHANNEL_LINK
             )
         ]
@@ -222,9 +219,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
 
         await update.message.reply_text(
-            """
-❌ برای استفاده از ربات ابتدا عضو کانال شوید
-""",
+            "❌ ابتدا عضو کانال شوید",
             reply_markup=keyboard
         )
 
@@ -235,25 +230,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ━━━━━━━━━━━━━━
 
-⚡ اینترنت مخصوص شبکه‌های اجتماعی
-⚡ سرعت بالا و پایدار
+⚡ فروش انواع کانفیگ پرسرعت
 ⚡ تحویل سریع
 ⚡ پشتیبانی فعال
-
-━━━━━━━━━━━━━━
-
-✅ مناسب اینستاگرام
-✅ تلگرام
-✅ واتساپ
-✅ یوتیوب
-✅ تیک‌تاک
 
 ━━━━━━━━━━━━━━
 
 🛠 پشتیبانی:
 {SUPPORT_ID}
 
-لطفاً انتخاب کنید 👇
+👇 یکی از گزینه‌ها را انتخاب کنید
 """
 
     await update.message.reply_text(
@@ -306,30 +292,24 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.delete()
 
-        text = """
-✅ عضویت تایید شد
-
-دوباره /start را ارسال کنید
-"""
-
         await context.bot.send_message(
             chat_id=user.id,
-            text=text
+            text="✅ عضویت تایید شد\n\nدوباره /start را ارسال کنید"
         )
 
     # =====================
-    # VIP PANEL
+    # VIP
     # =====================
 
     elif data == "vip":
 
         keyboard = []
 
-        for plan in VIP_PRICES:
+        for plan, price in VIP_PRICES.items():
 
             keyboard.append([
                 InlineKeyboardButton(
-                    f"{plan} ➜ {VIP_PRICES[plan]}",
+                    f"{plan} | {price}",
                     callback_data=f"buy_vip_{plan}"
                 )
             ])
@@ -343,37 +323,34 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.edit_text(
             """
-🔥 پنل VIP اجتماعی
+🔥 نت ملی اینستاگرام
 
 ✅ مناسب:
 • اینستاگرام
 • تلگرام
 • واتساپ
-• تیک‌تاک
 • یوتیوب
 
 ⚡ سرعت بالا
-⚡ پینگ مناسب
-⚡ پایداری بهتر
 
-📦 حجم موردنظر را انتخاب کنید 👇
+👇 حجم را انتخاب کنید
 """,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     # =====================
-    # CHEAP PANEL
+    # CHEAP
     # =====================
 
     elif data == "cheap":
 
         keyboard = []
 
-        for plan in CHEAP_PRICES:
+        for plan, price in CHEAP_PRICES.items():
 
             keyboard.append([
                 InlineKeyboardButton(
-                    f"{plan} ➜ {CHEAP_PRICES[plan]}",
+                    f"{plan} | {price}",
                     callback_data=f"buy_cheap_{plan}"
                 )
             ])
@@ -387,18 +364,16 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.edit_text(
             """
-💎 پنل اقتصادی و چت
+💬 نت ملی چت
 
 ✅ مناسب:
 • تلگرام
 • واتساپ
 • ایمو
-• پیام‌رسان خارجی
 
 ⚠️ فقط مناسب چت
-⚠️ ممکن است گاهی ناپایدار شود
 
-📦 حجم موردنظر را انتخاب کنید 👇
+👇 حجم را انتخاب کنید
 """,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -409,16 +384,14 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data.startswith("buy_"):
 
-        split_data = data.split("_")
-
-        plan_type = split_data[1]
-
-        plan = split_data[2]
+        _, plan_type, plan = data.split("_", 2)
 
         if plan_type == "vip":
             price = VIP_PRICES[plan]
+            panel_name = "نت ملی اینستاگرام"
         else:
             price = CHEAP_PRICES[plan]
+            panel_name = "نت ملی چت"
 
         cursor.execute(
             """
@@ -435,7 +408,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             (
                 user.id,
                 user.username,
-                plan,
+                f"{panel_name} - {plan}",
                 price,
                 "PENDING",
                 datetime.now().strftime(
@@ -453,7 +426,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "❌ لغو سفارش",
+                    "🔙 بازگشت",
                     callback_data="back"
                 )
             ]
@@ -461,9 +434,12 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.edit_text(
             f"""
-🧾 ثبت سفارش
+💳 اطلاعات پرداخت
 
 ━━━━━━━━━━━━━━
+
+📦 سرویس:
+{panel_name}
 
 📦 حجم:
 {plan}
@@ -473,7 +449,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ━━━━━━━━━━━━━━
 
-👤 صاحب کارت:
+👤 نام صاحب کارت:
 {CARD_NAME}
 
 💳 شماره کارت:
@@ -484,11 +460,8 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🧾 شماره سفارش:
 #{order_id}
 
-⚠️ لطفاً مبلغ را واریز کرده
-و سپس عکس رسید را ارسال کنید.
-
-✅ سفارش شما بعد از تایید پرداخت
-در سریع‌ترین زمان بررسی می‌شود.
+⚠️ مبلغ را واریز کنید
+و سپس عکس رسید را ارسال نمایید.
 """,
             reply_markup=keyboard
         )
@@ -501,9 +474,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.edit_text(
             f"""
-🛠 پشتیبانی ZenVPN
-
-درصورت وجود هرگونه مشکل:
+🛠 پشتیبانی
 
 {SUPPORT_ID}
 """,
@@ -518,17 +489,17 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     # =====================
-    # FREE CONFIG
+    # FREE
     # =====================
 
     elif data == "free":
 
         await query.message.edit_text(
             f"""
-🎁 دریافت کانفیگ رایگان
+🎁 کانفیگ رایگان
 
 1️⃣ عضو کانال شوید
-2️⃣ سپس به پشتیبانی پیام دهید
+2️⃣ به پشتیبانی پیام دهید
 
 📢 کانال:
 {CHANNEL_LINK}
@@ -577,7 +548,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "back":
 
         await query.message.edit_text(
-            "🏠 منوی اصلی",
+            "🏠 به منوی اصلی برگشتید",
             reply_markup=main_menu()
         )
 
@@ -586,6 +557,9 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # =====================
 
     elif data.startswith("approve_"):
+
+        if user.id != ADMIN_ID:
+            return
 
         order_id = data.split("_")[1]
 
@@ -613,8 +587,10 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
         )
 
+        caption = query.message.caption or ""
+
         await query.message.edit_caption(
-            caption=query.message.caption + "\n\n✅ تایید شد"
+            caption=caption + "\n\n✅ تایید شد"
         )
 
     # =====================
@@ -622,6 +598,9 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # =====================
 
     elif data.startswith("reject_"):
+
+        if user.id != ADMIN_ID:
+            return
 
         order_id = data.split("_")[1]
 
@@ -641,11 +620,13 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             user_id,
-            "❌ رسید تایید نشد"
+            "❌ رسید شما رد شد"
         )
 
+        caption = query.message.caption or ""
+
         await query.message.edit_caption(
-            caption=query.message.caption + "\n\n❌ رد شد"
+            caption=caption + "\n\n❌ رد شد"
         )
 
 # =========================
@@ -662,12 +643,20 @@ async def receipt_handler(
     if "receipt" not in context.user_data:
 
         await update.message.reply_text(
-            "❌ ابتدا خرید انجام دهید"
+            "❌ ابتدا سفارش ثبت کنید"
         )
 
         return
 
     order_id = context.user_data["receipt"]
+
+    if not update.message.photo:
+
+        await update.message.reply_text(
+            "❌ لطفاً عکس رسید ارسال کنید"
+        )
+
+        return
 
     photo = update.message.photo[-1]
 
@@ -677,6 +666,7 @@ async def receipt_handler(
                 "✅ تایید",
                 callback_data=f"approve_{order_id}"
             ),
+
             InlineKeyboardButton(
                 "❌ رد",
                 callback_data=f"reject_{order_id}"
@@ -684,10 +674,12 @@ async def receipt_handler(
         ]
     ])
 
-    await context.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=photo.file_id,
-        caption=f"""
+    try:
+
+        await context.bot.send_photo(
+            chat_id=ADMIN_ID,
+            photo=photo.file_id,
+            caption=f"""
 🧾 رسید جدید
 
 👤 نام:
@@ -699,19 +691,26 @@ async def receipt_handler(
 📦 سفارش:
 #{order_id}
 """,
-        reply_markup=keyboard
-    )
+            reply_markup=keyboard
+        )
 
-    await update.message.reply_text(
-        """
-✅ رسید دریافت شد
+        await update.message.reply_text(
+            """
+✅ رسید شما ارسال شد
 
-بعد از تایید ادمین
-وضعیت سفارش اعلام می‌شود.
+⏳ لطفاً منتظر تایید ادمین باشید
 """
-    )
+        )
 
-    del context.user_data["receipt"]
+        del context.user_data["receipt"]
+
+    except Exception as e:
+
+        print(e)
+
+        await update.message.reply_text(
+            "❌ خطا در ارسال رسید"
+        )
 
 # =========================
 # ERROR HANDLER
@@ -724,7 +723,6 @@ async def error_handler(update, context):
 # =========================
 # MAIN
 # =========================
-
 
 def main():
 
@@ -747,7 +745,7 @@ def main():
 
     app.add_error_handler(error_handler)
 
-    print("ZENVPN BOT ONLINE ✅")
+    print("BOT ONLINE ✅")
 
     app.run_polling()
 
